@@ -1,6 +1,6 @@
+// Test file for portfolio endpoint
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
 const port = 3000;
@@ -10,11 +10,11 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.json({ 
+ res.json({ 
     project: 'Vesting Vault', 
     status: 'Tracking Locked Tokens', 
     contract: 'CD5QF6KBAURVUNZR2EVBJISWSEYGDGEEYVH2XYJJADKT7KFOXTTIXLHU' 
-  });
+ });
 });
 
 // Portfolio aggregation endpoint
@@ -40,4 +40,4 @@ app.get('/api/user/:address/portfolio', (req, res) => {
     });
 });
 
-app.listen(port, () => console.log('Vesting API running'));
+app.listen(port, () => console.log(`Vesting API running on port ${port}`));
