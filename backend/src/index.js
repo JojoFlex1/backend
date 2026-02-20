@@ -17,6 +17,7 @@ const models = require('./models');
 
 // Services
 const indexingService = require('./services/indexingService');
+const adminService = require('./services/adminService');
 
 // Routes
 app.get('/', (req, res) => {
@@ -84,6 +85,63 @@ app.get('/api/claims/:userAddress/realized-gains', async (req, res) => {
     res.json({ success: true, data: gains });
   } catch (error) {
     console.error('Error calculating realized gains:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Admin Routes
+app.post('/api/admin/revoke', async (req, res) => {
+  try {
+    const { adminAddress, targetVault, reason } = req.body;
+    const result = await adminService.revokeAccess(adminAddress, targetVault, reason);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error revoking access:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/admin/create', async (req, res) => {
+  try {
+    const { adminAddress, targetVault, vaultConfig } = req.body;
+    const result = await adminService.createVault(adminAddress, targetVault, vaultConfig);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error creating vault:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/admin/transfer', async (req, res) => {
+  try {
+    const { adminAddress, targetVault, newOwner } = req.body;
+    const result = await adminService.transferVault(adminAddress, targetVault, newOwner);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error transferring vault:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/admin/audit-logs', async (req, res) => {
+  try {
+    const { limit } = req.query;
+    const result = await adminService.getAuditLogs(limit ? parseInt(limit) : 100);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message 
