@@ -1,6 +1,11 @@
 const auditLogger = require('./auditLogger');
 
 class AdminService {
+  constructor() {
+    // In-memory storage for pending admin transfers
+    // In production, this should be stored in a database
+    this.pendingTransfers = new Map();
+  }
   async revokeAccess(adminAddress, targetVault, reason = '') {
     try {
       // Validate admin address (in real implementation, this would check against admin list)
@@ -95,6 +100,181 @@ class AdminService {
       };
     } catch (error) {
       console.error('Error in transferVault:', error);
+      throw error;
+    }
+  }
+
+  async proposeNewAdmin(currentAdminAddress, newAdminAddress, contractAddress = null) {
+    try {
+      // Validate current admin address
+      if (!this.isValidAddress(currentAdminAddress)) {
+        throw new Error('Invalid current admin address');
+      }
+
+      // Validate new admin address
+      if (!this.isValidAddress(newAdminAddress)) {
+        throw new Error('Invalid new admin address');
+      }
+
+      // Check if new admin is different from current
+      if (currentAdminAddress.toLowerCase() === newAdminAddress.toLowerCase()) {
+        throw new Error('New admin address must be different from current admin');
+      }
+
+      // Create pending transfer record
+      const transferId = `${contractAddress || 'global'}_${Date.now()}`;
+      const pendingTransfer = {
+        id: transferId,
+        contractAddress,
+        currentAdmin: currentAdminAddress,
+        proposedAdmin: newAdminAddress,
+        proposedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+        status: 'pending'
+      };
+
+      // Store pending transfer
+      this.pendingTransfers.set(transferId, pendingTransfer);
+
+      // Log the proposal for audit
+      auditLogger.logAction(currentAdminAddress, 'PROPOSE_ADMIN', contractAddress || 'system', {
+        proposedAdmin: newAdminAddress,
+        transferId
+      });
+
+      console.log(`Admin transfer proposed: ${currentAdminAddress} -> ${newAdminAddress} for contract ${contractAddress || 'global'}`);
+
+      return {
+        success: true,
+        message: 'Admin transfer proposed successfully',
+        transferId,
+        contractAddress,
+        currentAdmin: currentAdminAddress,
+        proposedAdmin: newAdminAddress,
+        proposedAt: pendingTransfer.proposedAt,
+        expiresAt: pendingTransfer.expiresAt
+      };
+    } catch (error) {
+      console.error('Error in proposeNewAdmin:', error);
+      throw error;
+    }
+  }
+
+  async acceptOwnership(newAdminAddress, transferId) {
+    try {
+      // Validate new admin address
+      if (!this.isValidAddress(newAdminAddress)) {
+        throw new Error('Invalid new admin address');
+      }
+
+      // Check if pending transfer exists
+      const pendingTransfer = this.pendingTransfers.get(transferId);
+      if (!pendingTransfer) {
+        throw new Error('Pending transfer not found or expired');
+      }
+
+      // Verify the new admin address matches the proposed admin
+      if (pendingTransfer.proposedAdmin.toLowerCase() !== newAdminAddress.toLowerCase()) {
+        throw new Error('New admin address does not match the proposed admin');
+      }
+
+      // Check if transfer has expired
+      if (new Date() > new Date(pendingTransfer.expiresAt)) {
+        this.pendingTransfers.delete(transferId);
+        throw new Error('Transfer proposal has expired');
+      }
+
+      // Update transfer status
+      pendingTransfer.status = 'completed';
+      pendingTransfer.acceptedAt = new Date().toISOString();
+      pendingTransfer.acceptedBy = newAdminAddress;
+
+      // Remove from pending transfers
+      this.pendingTransfers.delete(transferId);
+
+      // Log the acceptance for audit
+      auditLogger.logAction(newAdminAddress, 'ACCEPT_ADMIN', pendingTransfer.contractAddress || 'system', {
+        previousAdmin: pendingTransfer.currentAdmin,
+        transferId
+      });
+
+      console.log(`Admin transfer accepted: ${pendingTransfer.currentAdmin} -> ${newAdminAddress} for contract ${pendingTransfer.contractAddress || 'global'}`);
+
+      return {
+        success: true,
+        message: 'Admin ownership transferred successfully',
+        transferId,
+        contractAddress: pendingTransfer.contractAddress,
+        previousAdmin: pendingTransfer.currentAdmin,
+        newAdmin: newAdminAddress,
+        proposedAt: pendingTransfer.proposedAt,
+        acceptedAt: pendingTransfer.acceptedAt
+      };
+    } catch (error) {
+      console.error('Error in acceptOwnership:', error);
+      throw error;
+    }
+  }
+
+  async transferOwnership(currentAdminAddress, newAdminAddress, contractAddress = null) {
+    try {
+      // Validate current admin address
+      if (!this.isValidAddress(currentAdminAddress)) {
+        throw new Error('Invalid current admin address');
+      }
+
+      // Validate new admin address
+      if (!this.isValidAddress(newAdminAddress)) {
+        throw new Error('Invalid new admin address');
+      }
+
+      // Check if new admin is different from current
+      if (currentAdminAddress.toLowerCase() === newAdminAddress.toLowerCase()) {
+        throw new Error('New admin address must be different from current admin');
+      }
+
+      // Perform immediate transfer (backward compatibility)
+      const transferId = `${contractAddress || 'global'}_${Date.now()}`;
+
+      // Log the transfer for audit
+      auditLogger.logAction(currentAdminAddress, 'TRANSFER_OWNERSHIP', contractAddress || 'system', {
+        newAdmin: newAdminAddress,
+        transferId
+      });
+
+      console.log(`Admin ownership transferred immediately: ${currentAdminAddress} -> ${newAdminAddress} for contract ${contractAddress || 'global'}`);
+
+      return {
+        success: true,
+        message: 'Admin ownership transferred successfully',
+        transferId,
+        contractAddress,
+        previousAdmin: currentAdminAddress,
+        newAdmin: newAdminAddress,
+        timestamp: new Date().toISOString(),
+        method: 'immediate'
+      };
+    } catch (error) {
+      console.error('Error in transferOwnership:', error);
+      throw error;
+    }
+  }
+
+  getPendingTransfers(contractAddress = null) {
+    try {
+      const transfers = Array.from(this.pendingTransfers.values());
+      
+      const filteredTransfers = contractAddress 
+        ? transfers.filter(t => t.contractAddress === contractAddress)
+        : transfers;
+
+      return {
+        success: true,
+        pendingTransfers: filteredTransfers,
+        total: filteredTransfers.length
+      };
+    } catch (error) {
+      console.error('Error getting pending transfers:', error);
       throw error;
     }
   }

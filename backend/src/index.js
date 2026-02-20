@@ -149,6 +149,63 @@ app.get('/api/admin/audit-logs', async (req, res) => {
   }
 });
 
+// Admin Key Management Routes
+app.post('/api/admin/propose-new-admin', async (req, res) => {
+  try {
+    const { currentAdminAddress, newAdminAddress, contractAddress } = req.body;
+    const result = await adminService.proposeNewAdmin(currentAdminAddress, newAdminAddress, contractAddress);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error proposing new admin:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/admin/accept-ownership', async (req, res) => {
+  try {
+    const { newAdminAddress, transferId } = req.body;
+    const result = await adminService.acceptOwnership(newAdminAddress, transferId);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error accepting ownership:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/admin/transfer-ownership', async (req, res) => {
+  try {
+    const { currentAdminAddress, newAdminAddress, contractAddress } = req.body;
+    const result = await adminService.transferOwnership(currentAdminAddress, newAdminAddress, contractAddress);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error transferring ownership:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/admin/pending-transfers', async (req, res) => {
+  try {
+    const { contractAddress } = req.query;
+    const result = await adminService.getPendingTransfers(contractAddress);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error fetching pending transfers:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // Start server
 const startServer = async () => {
   try {
