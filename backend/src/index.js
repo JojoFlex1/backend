@@ -18,6 +18,7 @@ const models = require('./models');
 // Services
 const indexingService = require('./services/indexingService');
 const adminService = require('./services/adminService');
+const vestingService = require('./services/vestingService');
 
 // Routes
 app.get('/', (req, res) => {
@@ -199,6 +200,102 @@ app.get('/api/admin/pending-transfers', async (req, res) => {
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('Error fetching pending transfers:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Vesting Routes
+app.post('/api/vaults', async (req, res) => {
+  try {
+    const vault = await vestingService.createVault(req.body);
+    res.status(201).json({ success: true, data: vault });
+  } catch (error) {
+    console.error('Error creating vault:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/vaults/:vaultAddress/top-up', async (req, res) => {
+  try {
+    const { vaultAddress } = req.params;
+    const topUpData = { ...req.body, vault_address: vaultAddress };
+    const subSchedule = await vestingService.processTopUp(topUpData);
+    res.status(201).json({ success: true, data: subSchedule });
+  } catch (error) {
+    console.error('Error processing top-up:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/vaults/:vaultAddress/schedule', async (req, res) => {
+  try {
+    const { vaultAddress } = req.params;
+    const { beneficiaryAddress } = req.query;
+    const schedule = await vestingService.getVestingSchedule(vaultAddress, beneficiaryAddress);
+    res.json({ success: true, data: schedule });
+  } catch (error) {
+    console.error('Error getting vesting schedule:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/vaults/:vaultAddress/:beneficiaryAddress/withdrawable', async (req, res) => {
+  try {
+    const { vaultAddress, beneficiaryAddress } = req.params;
+    const { timestamp } = req.query;
+    const vestingInfo = await vestingService.calculateWithdrawableAmount(
+      vaultAddress, 
+      beneficiaryAddress, 
+      timestamp ? new Date(timestamp) : new Date()
+    );
+    res.json({ success: true, data: vestingInfo });
+  } catch (error) {
+    console.error('Error calculating withdrawable amount:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/vaults/:vaultAddress/:beneficiaryAddress/withdraw', async (req, res) => {
+  try {
+    const { vaultAddress, beneficiaryAddress } = req.params;
+    const withdrawalData = { 
+      ...req.body, 
+      vault_address: vaultAddress, 
+      beneficiary_address: beneficiaryAddress 
+    };
+    const result = await vestingService.processWithdrawal(withdrawalData);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error processing withdrawal:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/vaults/:vaultAddress/summary', async (req, res) => {
+  try {
+    const { vaultAddress } = req.params;
+    const summary = await vestingService.getVaultSummary(vaultAddress);
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    console.error('Error getting vault summary:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message 
