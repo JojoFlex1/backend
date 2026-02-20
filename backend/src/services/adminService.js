@@ -1,4 +1,5 @@
 const auditLogger = require('./auditLogger');
+const vestingService = require('./vestingService');
 
 class AdminService {
   constructor() {
@@ -40,31 +41,25 @@ class AdminService {
 
   async createVault(adminAddress, targetVault, vaultConfig = {}) {
     try {
-      // Validate admin address
-      if (!this.isValidAddress(adminAddress)) {
-        throw new Error('Invalid admin address');
-      }
+      const {
+        ownerAddress,
+        tokenAddress,
+        totalAmount,
+        startDate,
+        endDate,
+        cliffDate = null
+      } = vaultConfig;
 
-      // Validate target vault address
-      if (!this.isValidAddress(targetVault)) {
-        throw new Error('Invalid target vault address');
-      }
-
-      // Perform create action (placeholder for actual implementation)
-      console.log(`Creating vault ${targetVault} by admin ${adminAddress}`, vaultConfig);
-
-      // Log the action for audit
-      auditLogger.logAction(adminAddress, 'CREATE', targetVault);
-
-      return {
-        success: true,
-        message: 'Vault created successfully',
+      return await vestingService.createVault(
         adminAddress,
         targetVault,
-        action: 'CREATE',
-        vaultConfig,
-        timestamp: new Date().toISOString()
-      };
+        ownerAddress,
+        tokenAddress,
+        totalAmount,
+        startDate,
+        endDate,
+        cliffDate
+      );
     } catch (error) {
       console.error('Error in createVault:', error);
       throw error;
@@ -100,6 +95,56 @@ class AdminService {
       };
     } catch (error) {
       console.error('Error in transferVault:', error);
+      throw error;
+    }
+  }
+
+  async topUpVault(adminAddress, vaultAddress, topUpConfig) {
+    try {
+      const {
+        topUpAmount,
+        transactionHash,
+        cliffDuration = null,
+        vestingDuration
+      } = topUpConfig;
+
+      return await vestingService.topUpVault(
+        adminAddress,
+        vaultAddress,
+        topUpAmount,
+        transactionHash,
+        cliffDuration,
+        vestingDuration
+      );
+    } catch (error) {
+      console.error('Error in topUpVault:', error);
+      throw error;
+    }
+  }
+
+  async getVaultDetails(vaultAddress) {
+    try {
+      return await vestingService.getVaultWithSubSchedules(vaultAddress);
+    } catch (error) {
+      console.error('Error in getVaultDetails:', error);
+      throw error;
+    }
+  }
+
+  async calculateReleasableAmount(vaultAddress, asOfDate) {
+    try {
+      return await vestingService.calculateReleasableAmount(vaultAddress, asOfDate);
+    } catch (error) {
+      console.error('Error in calculateReleasableAmount:', error);
+      throw error;
+    }
+  }
+
+  async releaseTokens(adminAddress, vaultAddress, releaseAmount, userAddress) {
+    try {
+      return await vestingService.releaseTokens(adminAddress, vaultAddress, releaseAmount, userAddress);
+    } catch (error) {
+      console.error('Error in releaseTokens:', error);
       throw error;
     }
   }

@@ -1,4 +1,4 @@
-const { ClaimsHistory } = require('../models');
+const { ClaimsHistory, Vault, SubSchedule } = require('../models');
 const priceService = require('./priceService');
 
 class IndexingService {
@@ -143,6 +143,134 @@ class IndexingService {
       console.error('Error calculating realized gains:', error);
       throw error;
     }
+  }
+
+  async processTopUpEvent(topUpData) {
+    try {
+      const {
+        vault_address,
+        top_up_amount,
+        transaction_hash,
+        block_number,
+        timestamp,
+        cliff_duration = null,
+        vesting_duration
+      } = topUpData;
+
+      const vault = await Vault.findOne({
+        where: { vault_address, is_active: true }
+      });
+
+      if (!vault) {
+        throw new Error(`Vault ${vault_address} not found or inactive`);
+      }
+
+      const topUpTimestamp = new Date(timestamp);
+      let cliffDate = null;
+      let vestingStartDate = topUpTimestamp;
+
+      if (cliff_duration && cliff_duration > 0) {
+        cliffDate = new Date(topUpTimestamp.getTime() + cliff_duration * 1000);
+        vestingStartDate = cliffDate;
+      }
+
+      const subSchedule = await SubSchedule.create({
+        vault_id: vault.id,
+        top_up_amount,
+        top_up_transaction_hash: transaction_hash,
+        top_up_timestamp: topUpTimestamp,
+        cliff_duration,
+        cliff_date: cliffDate,
+        vesting_start_date: vestingStartDate,
+        vesting_duration,
+      });
+
+      await vault.update({
+        total_amount: parseFloat(vault.total_amount) + parseFloat(top_up_amount),
+      });
+
+      console.log(`Processed top-up ${transaction_hash} for vault ${vault_address}`);
+      return subSchedule;
+    } catch (error) {
+      console.error('Error processing top-up event:', error);
+      throw error;
+    }
+  }
+
+  async processReleaseEvent(releaseData) {
+    try {
+      const {
+        vault_address,
+        user_address,
+        amount_released,
+        transaction_hash,
+        block_number,
+        timestamp
+      } = releaseData;
+
+      const vault = await Vault.findOne({
+        where: { vault_address, is_active: true },
+        include: [{
+          model: SubSchedule,
+          as: 'subSchedules',
+          where: { is_active: true },
+          required: false,
+        }],
+      });
+
+      if (!vault) {
+        throw new Error(`Vault ${vault_address} not found or inactive`);
+      }
+
+      let remainingToRelease = parseFloat(amount_released);
+
+      for (const subSchedule of vault.subSchedules) {
+        if (remainingToRelease <= 0) break;
+
+        const releasable = this.calculateSubScheduleReleasable(subSchedule, new Date(timestamp));
+        if (releasable <= 0) continue;
+
+        const releaseFromThis = Math.min(remainingToRelease, releasable);
+        
+        await subSchedule.update({
+          amount_released: parseFloat(subSchedule.amount_released) + releaseFromThis,
+        });
+
+        remainingToRelease -= releaseFromThis;
+      }
+
+      if (remainingToRelease > 0) {
+        throw new Error(`Insufficient releasable amount. Remaining: ${remainingToRelease}`);
+      }
+
+      console.log(`Processed release ${transaction_hash} for vault ${vault_address}, amount: ${amount_released}`);
+      return { success: true, amount_released };
+    } catch (error) {
+      console.error('Error processing release event:', error);
+      throw error;
+    }
+  }
+
+  calculateSubScheduleReleasable(subSchedule, asOfDate = new Date()) {
+    if (subSchedule.cliff_date && asOfDate < subSchedule.cliff_date) {
+      return 0;
+    }
+
+    if (asOfDate < subSchedule.vesting_start_date) {
+      return 0;
+    }
+
+    const vestingEnd = new Date(subSchedule.vesting_start_date.getTime() + subSchedule.vesting_duration * 1000);
+    if (asOfDate >= vestingEnd) {
+      return parseFloat(subSchedule.top_up_amount) - parseFloat(subSchedule.amount_released);
+    }
+
+    const vestedTime = asOfDate - subSchedule.vesting_start_date;
+    const vestedRatio = vestedTime / (subSchedule.vesting_duration * 1000);
+    const totalVested = parseFloat(subSchedule.top_up_amount) * vestedRatio;
+    const releasable = totalVested - parseFloat(subSchedule.amount_released);
+
+    return Math.max(0, releasable);
   }
 }
 

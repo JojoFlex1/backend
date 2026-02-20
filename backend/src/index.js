@@ -206,6 +206,94 @@ app.get('/api/admin/pending-transfers', async (req, res) => {
   }
 });
 
+// Vesting Management Routes
+app.post('/api/vault/top-up', async (req, res) => {
+  try {
+    const { adminAddress, vaultAddress, topUpConfig } = req.body;
+    const result = await adminService.topUpVault(adminAddress, vaultAddress, topUpConfig);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error topping up vault:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/vault/:vaultAddress/details', async (req, res) => {
+  try {
+    const { vaultAddress } = req.params;
+    const result = await adminService.getVaultDetails(vaultAddress);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error fetching vault details:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/vault/:vaultAddress/releasable', async (req, res) => {
+  try {
+    const { vaultAddress } = req.params;
+    const { asOfDate } = req.query;
+    const result = await adminService.calculateReleasableAmount(
+      vaultAddress, 
+      asOfDate ? new Date(asOfDate) : new Date()
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error calculating releasable amount:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/vault/release', async (req, res) => {
+  try {
+    const { adminAddress, vaultAddress, releaseAmount, userAddress } = req.body;
+    const result = await adminService.releaseTokens(adminAddress, vaultAddress, releaseAmount, userAddress);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error releasing tokens:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Indexing Service Routes for Vesting Events
+app.post('/api/indexing/top-up', async (req, res) => {
+  try {
+    const result = await indexingService.processTopUpEvent(req.body);
+    res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error processing top-up event:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/indexing/release', async (req, res) => {
+  try {
+    const result = await indexingService.processReleaseEvent(req.body);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error processing release event:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // Start server
 const startServer = async () => {
   try {

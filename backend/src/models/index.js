@@ -1,8 +1,24 @@
 const { sequelize } = require('../database/connection');
 const ClaimsHistory = require('./claimsHistory');
+const Vault = require('./vault');
+const SubSchedule = require('./subSchedule');
+
+// Setup associations
+Vault.hasMany(SubSchedule, {
+  foreignKey: 'vault_id',
+  as: 'subSchedules',
+  onDelete: 'CASCADE',
+});
+
+SubSchedule.belongsTo(Vault, {
+  foreignKey: 'vault_id',
+  as: 'vault',
+});
 
 const models = {
   ClaimsHistory,
+  Vault,
+  SubSchedule,
   sequelize,
 };
 
