@@ -7,32 +7,13 @@ const Vault = sequelize.define('Vault', {
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
   },
-  address: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-    comment: 'Smart contract address of the vault',
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    comment: 'Human-readable name for the vault',
-  },
-  token_address: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    comment: 'Address of the token being vested',
-  },
-  owner_address: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    comment: 'Address of the vault owner',
+
   },
   total_amount: {
     type: DataTypes.DECIMAL(36, 18),
     allowNull: false,
     defaultValue: 0,
-    comment: 'Total tokens deposited in the vault',
+
   },
   created_at: {
     type: DataTypes.DATE,
@@ -49,15 +30,14 @@ const Vault = sequelize.define('Vault', {
   updatedAt: 'updated_at',
   indexes: [
     {
-      fields: ['address'],
+n
       unique: true,
     },
     {
       fields: ['owner_address'],
     },
     {
-      fields: ['token_address'],
-    },
+
   ],
 });
 
