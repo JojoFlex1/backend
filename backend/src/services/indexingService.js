@@ -1,6 +1,7 @@
 const { ClaimsHistory, Vault, SubSchedule } = require('../models');
 const priceService = require('./priceService');
 const slackWebhookService = require('./slackWebhookService');
+const tvlService = require('./tvlService');
 
 class IndexingService {
   async processClaim(claimData) {
@@ -39,6 +40,14 @@ class IndexingService {
       } catch (alertError) {
         console.error('Error processing claim alert:', alertError);
         // Don't throw - alert failure shouldn't fail the claim processing
+      }
+      
+      // Update TVL for claim event
+      try {
+        await tvlService.handleClaim(claim.toJSON());
+      } catch (tvlError) {
+        console.error('Error updating TVL for claim:', tvlError);
+        // Don't throw - TVL update failure shouldn't fail claim processing
       }
       
       return claim;

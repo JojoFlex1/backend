@@ -32,6 +32,7 @@ const adminService = require('./services/adminService');
 const vestingService = require('./services/vestingService');
 const discordBotService = require('./services/discordBotService');
 const cacheService = require('./services/cacheService');
+const tvlService = require('./services/tvlService');
 
 // Routes
 app.get('/', (req, res) => {
@@ -220,48 +221,24 @@ app.get('/api/admin/pending-transfers', async (req, res) => {
   }
 });
 
-// Organization Routes
-app.get('/api/org/:address', async (req, res) => {
+// Stats Routes
+app.get('/api/stats/tvl', async (req, res) => {
   try {
-    const { address } = req.params;
-    
-    // Validate address format (basic validation)
-    if (!address || address.length < 20) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Valid admin address required' 
-      });
-    }
-    
-    const organization = await models.Organization.findOne({
-      where: { admin_address: address }
-    });
-    
-    if (!organization) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Organization not found for this admin address' 
-      });
-    }
-    
-    res.json({ 
-      success: true, 
+    const tvlStats = await tvlService.getTVLStats();
+    res.json({
+      success: true,
       data: {
-        id: organization.id,
-        name: organization.name,
-        logo_url: organization.logo_url,
-        website_url: organization.website_url,
-        discord_url: organization.discord_url,
-        admin_address: organization.admin_address,
-        created_at: organization.created_at,
-        updated_at: organization.updated_at
+        total_value_locked: tvlStats.total_value_locked,
+        active_vaults_count: tvlStats.active_vaults_count,
+        formatted_tvl: tvlService.formatTVL(tvlStats.total_value_locked),
+        last_updated_at: tvlStats.last_updated_at
       }
     });
   } catch (error) {
-    console.error('Error fetching organization:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    console.error('Error fetching TVL stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
