@@ -1,5 +1,6 @@
 const models = require('../../models');
 const cacheService = require('../../services/cacheService');
+const tvlService = require('../../services/tvlService');
 
 export const vaultResolver = {
   Query: {
@@ -129,6 +130,14 @@ export const vaultResolver = {
         if (input.ownerAddress) {
           await cacheService.invalidateUserVaults(input.ownerAddress);
           console.log(`Invalidated cache for user vaults: ${input.ownerAddress}`);
+        }
+
+        // Update TVL for new vault
+        try {
+          await tvlService.handleVaultCreated(vault.toJSON());
+        } catch (tvlError) {
+          console.error('Error updating TVL for new vault:', tvlError);
+          // Don't throw - TVL update failure shouldn't fail vault creation
         }
 
         return vault;

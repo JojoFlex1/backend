@@ -2,13 +2,13 @@ const { sequelize } = require('../database/connection');
 const ClaimsHistory = require('./claimsHistory');
 const Vault = require('./vault');
 const SubSchedule = require('./subSchedule');
-
+const TVL = require('./tvl');
 
 const models = {
   ClaimsHistory,
   Vault,
   SubSchedule,
-
+  TVL,
   sequelize,
 };
 

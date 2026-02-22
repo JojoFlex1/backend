@@ -32,6 +32,7 @@ const adminService = require('./services/adminService');
 const vestingService = require('./services/vestingService');
 const discordBotService = require('./services/discordBotService');
 const cacheService = require('./services/cacheService');
+const tvlService = require('./services/tvlService');
 
 // Routes
 app.get('/', (req, res) => {
@@ -216,6 +217,28 @@ app.get('/api/admin/pending-transfers', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: error.message 
+    });
+  }
+});
+
+// Stats Routes
+app.get('/api/stats/tvl', async (req, res) => {
+  try {
+    const tvlStats = await tvlService.getTVLStats();
+    res.json({
+      success: true,
+      data: {
+        total_value_locked: tvlStats.total_value_locked,
+        active_vaults_count: tvlStats.active_vaults_count,
+        formatted_tvl: tvlService.formatTVL(tvlStats.total_value_locked),
+        last_updated_at: tvlStats.last_updated_at
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching TVL stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
