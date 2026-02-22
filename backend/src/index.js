@@ -218,47 +218,45 @@ app.get('/api/admin/pending-transfers', async (req, res) => {
   }
 });
 
-
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+// Organization Routes
+app.get('/api/org/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    
+    // Validate address format (basic validation)
+    if (!address || address.length < 20) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid admin address required' 
+      });
+    }
+    
+    const organization = await models.Organization.findOne({
+      where: { admin_address: address }
     });
-  }
-});
-
-
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    
+    if (!organization) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Organization not found for this admin address' 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      data: {
+        id: organization.id,
+        name: organization.name,
+        logo_url: organization.logo_url,
+        website_url: organization.website_url,
+        discord_url: organization.discord_url,
+        admin_address: organization.admin_address,
+        created_at: organization.created_at,
+        updated_at: organization.updated_at
+      }
     });
-  }
-});
-
-
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-<
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-
+  } catch (error) {
+    console.error('Error fetching organization:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message 
