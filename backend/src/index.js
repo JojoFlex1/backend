@@ -4,6 +4,7 @@ const { RedisIoAdapter } = require('./websocket/redis.adapter');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
+const checkApiKey = require('./middleware/checkApiKey');
 
 // Import swagger documentation
 const swaggerUi = require('swagger-ui-express');
@@ -111,6 +112,8 @@ app.get('/api/claims/:userAddress/realized-gains', async (req, res) => {
 });
 
 // Admin Routes
+app.use('/api/admin', checkApiKey);
+
 app.post('/api/admin/revoke', async (req, res) => {
   try {
     const { adminAddress, targetVault, reason } = req.body;
