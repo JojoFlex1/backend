@@ -27,6 +27,21 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 // Database connection and models
 const { sequelize } = require('./database/connection');
 const models = require('./models');
+const { OrganizationWebhook } = models;
+// Register webhook URL for organization
+app.post('/api/admin/webhooks', async (req, res) => {
+  try {
+    const { organization_id, webhook_url } = req.body;
+    if (!organization_id || !webhook_url) {
+      return res.status(400).json({ success: false, error: 'organization_id and webhook_url are required' });
+    }
+    const webhook = await OrganizationWebhook.create({ organization_id, webhook_url });
+    res.status(201).json({ success: true, data: webhook });
+  } catch (error) {
+    console.error('Error registering webhook:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Services
 const indexingService = require('./services/indexingService');

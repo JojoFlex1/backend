@@ -55,6 +55,22 @@ class IndexingService {
       
       // Emit internal claim event for WebSocket gateway
       claimEventEmitter.emit('claim', claim.toJSON());
+
+      // Fire webhook POST for DAOs
+      const { OrganizationWebhook } = require('../models');
+      const axios = require('axios');
+      // Find webhooks for the organization (if vault has organization_id)
+      if (claim.organization_id) {
+        const webhooks = await OrganizationWebhook.findAll({ where: { organization_id: claim.organization_id } });
+        for (const webhook of webhooks) {
+          try {
+            await axios.post(webhook.webhook_url, claim.toJSON());
+            console.log(`Webhook fired: ${webhook.webhook_url}`);
+          } catch (err) {
+            console.error(`Webhook failed: ${webhook.webhook_url}`, err);
+          }
+        }
+      }
       return claim;
     } catch (error) {
       console.error('Error processing claim:', error);
