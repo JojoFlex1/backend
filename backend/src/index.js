@@ -1,6 +1,4 @@
 const express = require('express');
-const { ClaimGateway } = require('./websocket/claim.gateway');
-const { RedisIoAdapter } = require('./websocket/redis.adapter');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
@@ -34,6 +32,27 @@ const claimRateLimiter = rateLimit({
 
 const { sequelize } = require('./database/connection');
 const models = require('./models');
+const { OrganizationWebhook } = models;
+// Register webhook URL for organization
+const { isAdminOfOrg } = require('./graphql/middleware/auth');
+// Register webhook URL for organization with admin/org check
+app.post('/api/admin/webhooks', async (req, res) => {
+  try {
+    const { organization_id, webhook_url, admin_address } = req.body;
+    if (!organization_id || !webhook_url || !admin_address) {
+      return res.status(400).json({ success: false, error: 'organization_id, webhook_url, and admin_address are required' });
+    }
+    const isAdmin = await isAdminOfOrg(admin_address, organization_id);
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: 'Forbidden: admin_address does not belong to organization' });
+    }
+    const webhook = await OrganizationWebhook.create({ organization_id, webhook_url });
+    res.status(201).json({ success: true, data: webhook });
+  } catch (error) {
+    console.error('Error registering webhook:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 const indexingService = require('./services/indexingService');
 const adminService = require('./services/adminService');
@@ -42,7 +61,7 @@ const discordBotService = require('./services/discordBotService');
 const cacheService = require('./services/cacheService');
 const tvlService = require('./services/tvlService');
 const vaultExportService = require('./services/vaultExportService');
-const calendarService = require('./services/calendarService');
+
 
 app.get('/', (req, res) => {
   res.json({ message: 'Vesting Vault API is running!' });
@@ -204,23 +223,7 @@ app.get('/api/stats/tvl', async (req, res) => {
   }
 });
 
-// Calendar Route
-app.get('/api/user/:address/calendar', async (req, res) => {
-  try {
-    const { address } = req.params;
-    const unlocks = await calendarService.getUpcomingUnlocks(address);
-    res.json({ success: true, data: unlocks });
-  } catch (error) {
-    console.error('Error fetching calendar:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
-app.get('/api/vault/:id/export', async (req, res) => {
-  try {
-    const { id } = req.params;
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="vault-${id}-export-${new Date().toISOString().split('T')[0]}.csv"`);
     await vaultExportService.streamVaultAsCSV(id, res);
   } catch (error) {
     console.error('Error exporting vault:', error);
@@ -237,7 +240,6 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('Database connection established successfully.');
 
-    await sequelize.sync();
     console.log('Database synchronized successfully.');
 
     try {
@@ -278,9 +280,7 @@ const startServer = async () => {
       if (graphQLServer) {
         console.log(`GraphQL API available at: http://localhost:${PORT}/graphql`);
       }
-      const redisIoAdapter = new RedisIoAdapter(httpServer);
-      const claimGateway = new ClaimGateway();
-      claimGateway.server = redisIoAdapter.createIOServer(PORT, { transports: ['websocket'] });
+
     });
   } catch (error) {
     console.error('Unable to start server:', error);
